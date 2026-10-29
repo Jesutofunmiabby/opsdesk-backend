@@ -1,12 +1,10 @@
 package com.opsdesk.opsdeskbackend.ticket;
 
 import java.net.URI;
-import java.util.Map;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,11 +13,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import com.opsdesk.opsdeskbackend.common.ErrorResponse;
-import com.opsdesk.opsdeskbackend.common.InvalidQueryException;
 import com.opsdesk.opsdeskbackend.common.PageResponse;
+import com.opsdesk.opsdeskbackend.common.QueryParams;
+import com.opsdesk.opsdeskbackend.common.ValidationException;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/tickets")
@@ -31,12 +30,25 @@ public class TicketController {
         this.ticketService = ticketService;
     }
 
+    // Parameters are read as text so every bad one can be reported together.
     @GetMapping
     public PageResponse<TicketResponse> list(
-            @RequestParam(required = false) TicketStatus status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ticketService.findPage(status, page, size).map(TicketResponse::from);
+            @RequestParam(required = false) String page,
+            @RequestParam(required = false) String size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) String search) {
+        QueryParams params = new QueryParams();
+        int pageNumber = params.page(page);
+        int pageSize = params.size(size);
+        TicketStatus statusFilter = params.oneOf("status", status, TicketStatus.class,
+                "Choose a status: OPEN, IN_PROGRESS, RESOLVED or CLOSED.");
+        TicketPriority priorityFilter = params.oneOf("priority", priority, TicketPriority.class,
+                "Choose a priority: LOW, MEDIUM or HIGH.");
+        params.throwIfInvalid();
+
+        TicketFilter filter = new TicketFilter(statusFilter, priorityFilter, search);
+        return ticketService.findPage(filter, pageNumber, pageSize).map(TicketResponse::from);
     }
 
     @GetMapping("/{id}")
@@ -45,14 +57,23 @@ public class TicketController {
     }
 
     @PostMapping
-    public ResponseEntity<TicketResponse> create(@RequestBody CreateTicketRequest request) {
+    public ResponseEntity<TicketResponse> create(@Valid @RequestBody CreateTicketRequest request) {
         Ticket ticket = ticketService.create(request);
         URI location = URI.create("/api/v1/tickets/" + ticket.getId());
         return ResponseEntity.created(location).body(TicketResponse.from(ticket));
     }
 
     @PatchMapping("/{id}")
-    public TicketResponse update(@PathVariable long id, @RequestBody UpdateTicketRequest request) {
+    public TicketResponse update(
+            @PathVariable long id,
+            @Valid @RequestBody UpdateTicketRequest request,
+            BindingResult validation) {
+        // The contract checks for a missing ticket before the body, so the
+        // validation result is collected here and reported after the 404 check.
+        ticketService.findById(id);
+        if (validation.hasErrors()) {
+            throw ValidationException.fromFieldErrors(validation.getFieldErrors());
+        }
         return TicketResponse.from(ticketService.update(id, request));
     }
 
@@ -60,35 +81,5 @@ public class TicketController {
     public ResponseEntity<Void> delete(@PathVariable long id) {
         ticketService.delete(id);
         return ResponseEntity.noContent().build();
-    }
-
-    // These handlers only cover this controller. Issue #4 moves error
-    // handling into one global handler.
-
-    @ExceptionHandler(TicketNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(TicketNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponse("NOT_FOUND", e.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidQueryException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidQuery(InvalidQueryException e) {
-        return ResponseEntity.badRequest()
-                .body(new ErrorResponse("VALIDATION_ERROR", e.getMessage(), e.getFields()));
-    }
-
-    // A value of the wrong type. The contract treats an id like /tickets/abc as
-    // not found, and page=abc, size=abc or status=DONE as a bad query.
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
-        if (e.getName().equals("id")) {
-            return handleNotFound(new TicketNotFoundException(String.valueOf(e.getValue())));
-        }
-        String message = switch (e.getName()) {
-            case "page" -> "page must be a whole number of 0 or more.";
-            case "size" -> "size must be a whole number from 1 to 100.";
-            default -> "Choose a status: OPEN, IN_PROGRESS, RESOLVED or CLOSED.";
-        };
-        return handleInvalidQuery(new InvalidQueryException(Map.of(e.getName(), message)));
     }
 }
