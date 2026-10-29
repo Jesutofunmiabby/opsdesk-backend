@@ -1,5 +1,7 @@
 package com.opsdesk.opsdeskbackend.ticket;
 
+import com.opsdesk.opsdeskbackend.common.Text;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -22,7 +24,7 @@ public record CreateTicketRequest(
     // Runs before validation: the contract trims text before checking it, so
     // "  ab  " is too short.
     public CreateTicketRequest {
-        title = title == null ? null : title.strip();
-        description = description == null ? null : description.strip();
+        title = Text.trim(title);
+        description = Text.trim(description);
     }
 }

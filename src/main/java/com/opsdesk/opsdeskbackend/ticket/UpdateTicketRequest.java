@@ -1,5 +1,7 @@
 package com.opsdesk.opsdeskbackend.ticket;
 
+import com.opsdesk.opsdeskbackend.common.Text;
+
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -23,8 +25,8 @@ public record UpdateTicketRequest(
         String status) {
 
     public UpdateTicketRequest {
-        title = title == null ? null : title.strip();
-        description = description == null ? null : description.strip();
+        title = Text.trim(title);
+        description = Text.trim(description);
     }
 
     public boolean hasNoFields() {

@@ -2,6 +2,8 @@ package com.opsdesk.opsdeskbackend.ticket;
 
 import org.springframework.data.jpa.domain.Specification;
 
+import com.opsdesk.opsdeskbackend.common.Text;
+
 // The filters for GET /api/v1/tickets. Each one is optional (null means no
 // filter), and they combine: status=OPEN&priority=HIGH means open and high.
 public record TicketFilter(TicketStatus status, TicketPriority priority, String search) {
@@ -9,7 +11,10 @@ public record TicketFilter(TicketStatus status, TicketPriority priority, String 
     // The contract ignores spaces at either end, and an empty search means no
     // search.
     public TicketFilter {
-        search = search == null || search.isBlank() ? null : search.strip();
+        search = Text.trim(search);
+        if (search != null && search.isEmpty()) {
+            search = null;
+        }
     }
 
     // Builds the WHERE clause from only the filters that were sent.
