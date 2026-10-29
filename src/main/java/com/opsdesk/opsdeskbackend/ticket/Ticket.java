@@ -6,9 +6,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+
+import com.opsdesk.opsdeskbackend.project.Project;
+import com.opsdesk.opsdeskbackend.user.AppUser;
 
 @Entity
 public class Ticket {
@@ -40,6 +46,17 @@ public class Ticket {
 
     @Column(nullable = false)
     private Instant updatedAt;
+
+    // Many tickets can belong to one project. Saved as the foreign key column
+    // project_id. Optional, because the API does not set a project yet.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
+    // The person working on the ticket, if anyone. Saved as assignee_id.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private AppUser assignee;
 
     public Long getId() {
         return id;
@@ -95,5 +112,21 @@ public class Ticket {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Project getProject() {
+        return project;
+    }
+
+    public void setProject(Project project) {
+        this.project = project;
+    }
+
+    public AppUser getAssignee() {
+        return assignee;
+    }
+
+    public void setAssignee(AppUser assignee) {
+        this.assignee = assignee;
     }
 }
