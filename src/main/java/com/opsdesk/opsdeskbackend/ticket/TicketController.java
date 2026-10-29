@@ -1,12 +1,9 @@
 package com.opsdesk.opsdeskbackend.ticket;
 
 import java.net.URI;
-import java.util.Map;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,10 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import com.opsdesk.opsdeskbackend.common.ErrorResponse;
-import com.opsdesk.opsdeskbackend.common.InvalidQueryException;
 import com.opsdesk.opsdeskbackend.common.PageResponse;
 
 @RestController
@@ -60,35 +54,5 @@ public class TicketController {
     public ResponseEntity<Void> delete(@PathVariable long id) {
         ticketService.delete(id);
         return ResponseEntity.noContent().build();
-    }
-
-    // These handlers only cover this controller. Issue #4 moves error
-    // handling into one global handler.
-
-    @ExceptionHandler(TicketNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(TicketNotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponse("NOT_FOUND", e.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidQueryException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidQuery(InvalidQueryException e) {
-        return ResponseEntity.badRequest()
-                .body(new ErrorResponse("VALIDATION_ERROR", e.getMessage(), e.getFields()));
-    }
-
-    // A value of the wrong type. The contract treats an id like /tickets/abc as
-    // not found, and page=abc, size=abc or status=DONE as a bad query.
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
-        if (e.getName().equals("id")) {
-            return handleNotFound(new TicketNotFoundException(String.valueOf(e.getValue())));
-        }
-        String message = switch (e.getName()) {
-            case "page" -> "page must be a whole number of 0 or more.";
-            case "size" -> "size must be a whole number from 1 to 100.";
-            default -> "Choose a status: OPEN, IN_PROGRESS, RESOLVED or CLOSED.";
-        };
-        return handleInvalidQuery(new InvalidQueryException(Map.of(e.getName(), message)));
     }
 }

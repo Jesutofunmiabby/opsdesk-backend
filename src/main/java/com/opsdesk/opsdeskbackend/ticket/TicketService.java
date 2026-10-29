@@ -11,7 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import com.opsdesk.opsdeskbackend.common.InvalidQueryException;
+import com.opsdesk.opsdeskbackend.common.ValidationException;
 import com.opsdesk.opsdeskbackend.common.PageResponse;
 
 @Service
@@ -36,7 +36,7 @@ public class TicketService {
             problems.put("size", "size must be a whole number from 1 to 100.");
         }
         if (!problems.isEmpty()) {
-            throw new InvalidQueryException(problems);
+            throw new ValidationException("Check the query parameters.", problems);
         }
         Page<Ticket> result = query(status, PageRequest.of(page, size, OLDEST_FIRST));
         // A page past the end gives the last page instead of an empty one.
