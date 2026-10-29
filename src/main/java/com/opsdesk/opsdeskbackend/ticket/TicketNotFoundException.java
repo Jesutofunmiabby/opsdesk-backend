@@ -1,8 +1,10 @@
 package com.opsdesk.opsdeskbackend.ticket;
 
-public class TicketNotFoundException extends RuntimeException {
+import com.opsdesk.opsdeskbackend.common.NotFoundException;
+
+public class TicketNotFoundException extends NotFoundException {
 
     public TicketNotFoundException(String id) {
-        super("There is no ticket with the id \"" + id + "\".");
+        super("ticket", id);
     }
 }

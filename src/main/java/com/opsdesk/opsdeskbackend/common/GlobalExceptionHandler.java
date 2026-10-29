@@ -15,8 +15,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import com.opsdesk.opsdeskbackend.ticket.TicketNotFoundException;
-
 // Turns every exception from every controller into the contract's error
 // shape: { error, message, fields }.
 @RestControllerAdvice
@@ -42,17 +40,20 @@ public class GlobalExceptionHandler {
         return handleValidation(new ValidationException("The request body must be a JSON object."));
     }
 
-    @ExceptionHandler(TicketNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(TicketNotFoundException e) {
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(NotFoundException e) {
         return notFound(e.getMessage());
     }
 
     // The contract treats an id that is not a whole number (/tickets/abc) as
-    // not found. Query parameters are read as text, so only ids get here.
+    // not found. Query parameters are read as text, so only ids get here. The
+    // controller's name says what was asked for: TicketController -> ticket.
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         if (e.getName().equals("id")) {
-            return notFound("There is no ticket with the id \"" + e.getValue() + "\".");
+            String thing = e.getParameter().getContainingClass().getSimpleName()
+                    .replace("Controller", "").toLowerCase();
+            return notFound(new NotFoundException(thing, String.valueOf(e.getValue())).getMessage());
         }
         return handleValidation(new ValidationException("Check the query parameters.",
                 Map.of(e.getName(), "This value is not valid.")));

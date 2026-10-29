@@ -3,9 +3,6 @@ package com.opsdesk.opsdeskbackend.ticket;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -14,9 +11,6 @@ import com.opsdesk.opsdeskbackend.common.ValidationException;
 
 @Service
 public class TicketService {
-
-    // The contract lists items oldest first.
-    private static final Sort OLDEST_FIRST = Sort.by("id");
 
     private final TicketRepository ticketRepository;
 
@@ -27,13 +21,7 @@ public class TicketService {
     // page and size have already been checked against the contract's ranges.
     public PageResponse<Ticket> findPage(TicketFilter filter, int page, int size) {
         Specification<Ticket> where = filter.toSpecification();
-        Page<Ticket> result = ticketRepository.findAll(where, PageRequest.of(page, size, OLDEST_FIRST));
-        // A page past the end gives the last page instead of an empty one.
-        int lastPage = Math.max(0, result.getTotalPages() - 1);
-        if (page > lastPage) {
-            result = ticketRepository.findAll(where, PageRequest.of(lastPage, size, OLDEST_FIRST));
-        }
-        return PageResponse.from(result);
+        return PageResponse.fetch(page, size, pageable -> ticketRepository.findAll(where, pageable));
     }
 
     public Ticket findById(long id) {
