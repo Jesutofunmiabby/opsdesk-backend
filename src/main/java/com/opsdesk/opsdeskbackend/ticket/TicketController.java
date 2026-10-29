@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.opsdesk.opsdeskbackend.common.PageResponse;
+import com.opsdesk.opsdeskbackend.common.QueryParams;
 import com.opsdesk.opsdeskbackend.common.ValidationException;
 
 import jakarta.validation.Valid;
@@ -29,12 +30,25 @@ public class TicketController {
         this.ticketService = ticketService;
     }
 
+    // Parameters are read as text so every bad one can be reported together.
     @GetMapping
     public PageResponse<TicketResponse> list(
-            @RequestParam(required = false) TicketStatus status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ticketService.findPage(status, page, size).map(TicketResponse::from);
+            @RequestParam(required = false) String page,
+            @RequestParam(required = false) String size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) String search) {
+        QueryParams params = new QueryParams();
+        int pageNumber = params.page(page);
+        int pageSize = params.size(size);
+        TicketStatus statusFilter = params.oneOf("status", status, TicketStatus.class,
+                "Choose a status: OPEN, IN_PROGRESS, RESOLVED or CLOSED.");
+        TicketPriority priorityFilter = params.oneOf("priority", priority, TicketPriority.class,
+                "Choose a priority: LOW, MEDIUM or HIGH.");
+        params.throwIfInvalid();
+
+        TicketFilter filter = new TicketFilter(statusFilter, priorityFilter, search);
+        return ticketService.findPage(filter, pageNumber, pageSize).map(TicketResponse::from);
     }
 
     @GetMapping("/{id}")

@@ -48,19 +48,14 @@ public class GlobalExceptionHandler {
     }
 
     // The contract treats an id that is not a whole number (/tickets/abc) as
-    // not found.
+    // not found. Query parameters are read as text, so only ids get here.
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         if (e.getName().equals("id")) {
             return notFound("There is no ticket with the id \"" + e.getValue() + "\".");
         }
-        String message = switch (e.getName()) {
-            case "page" -> "page must be a whole number of 0 or more.";
-            case "size" -> "size must be a whole number from 1 to 100.";
-            default -> "Choose a status: OPEN, IN_PROGRESS, RESOLVED or CLOSED.";
-        };
         return handleValidation(new ValidationException("Check the query parameters.",
-                Map.of(e.getName(), message)));
+                Map.of(e.getName(), "This value is not valid.")));
     }
 
     // A URL that no endpoint answers.

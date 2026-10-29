@@ -2,13 +2,11 @@ package com.opsdesk.opsdeskbackend.ticket;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import com.opsdesk.opsdeskbackend.common.PageResponse;
@@ -26,32 +24,16 @@ public class TicketService {
         this.ticketRepository = ticketRepository;
     }
 
-    // status is optional: null means tickets of every status.
-    public PageResponse<Ticket> findPage(TicketStatus status, int page, int size) {
-        Map<String, String> problems = new LinkedHashMap<>();
-        if (page < 0) {
-            problems.put("page", "page must be a whole number of 0 or more.");
-        }
-        if (size < 1 || size > 100) {
-            problems.put("size", "size must be a whole number from 1 to 100.");
-        }
-        if (!problems.isEmpty()) {
-            throw new ValidationException("Check the query parameters.", problems);
-        }
-        Page<Ticket> result = query(status, PageRequest.of(page, size, OLDEST_FIRST));
+    // page and size have already been checked against the contract's ranges.
+    public PageResponse<Ticket> findPage(TicketFilter filter, int page, int size) {
+        Specification<Ticket> where = filter.toSpecification();
+        Page<Ticket> result = ticketRepository.findAll(where, PageRequest.of(page, size, OLDEST_FIRST));
         // A page past the end gives the last page instead of an empty one.
         int lastPage = Math.max(0, result.getTotalPages() - 1);
         if (page > lastPage) {
-            result = query(status, PageRequest.of(lastPage, size, OLDEST_FIRST));
+            result = ticketRepository.findAll(where, PageRequest.of(lastPage, size, OLDEST_FIRST));
         }
         return PageResponse.from(result);
-    }
-
-    private Page<Ticket> query(TicketStatus status, Pageable pageable) {
-        if (status == null) {
-            return ticketRepository.findAll(pageable);
-        }
-        return ticketRepository.findByStatus(status, pageable);
     }
 
     public Ticket findById(long id) {
