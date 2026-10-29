@@ -1,0 +1,83 @@
+package com.opsdesk.opsdeskbackend.ticket;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+
+import com.opsdesk.opsdeskbackend.common.InvalidQueryException;
+import com.opsdesk.opsdeskbackend.common.PageResponse;
+
+@Service
+public class TicketService {
+
+    private final TicketRepository ticketRepository;
+
+    public TicketService(TicketRepository ticketRepository) {
+        this.ticketRepository = ticketRepository;
+    }
+
+    public PageResponse<Ticket> findPage(int page, int size) {
+        Map<String, String> problems = new LinkedHashMap<>();
+        if (page < 0) {
+            problems.put("page", "page must be a whole number of 0 or more.");
+        }
+        if (size < 1 || size > 100) {
+            problems.put("size", "size must be a whole number from 1 to 100.");
+        }
+        if (!problems.isEmpty()) {
+            throw new InvalidQueryException(problems);
+        }
+        return PageResponse.of(ticketRepository.findAll(), page, size);
+    }
+
+    public Ticket findById(long id) {
+        return ticketRepository.findById(id)
+                .orElseThrow(() -> new TicketNotFoundException(String.valueOf(id)));
+    }
+
+    public Ticket create(CreateTicketRequest request) {
+        Instant now = now();
+        Ticket ticket = new Ticket();
+        ticket.setTitle(trim(request.title()));
+        ticket.setDescription(trim(request.description()));
+        ticket.setPriority(request.priority());
+        ticket.setStatus(TicketStatus.OPEN);
+        ticket.setCreatedAt(now);
+        ticket.setUpdatedAt(now);
+        return ticketRepository.save(ticket);
+    }
+
+    public Ticket update(long id, UpdateTicketRequest request) {
+        Ticket ticket = findById(id);
+        if (request.title() != null) {
+            ticket.setTitle(trim(request.title()));
+        }
+        if (request.description() != null) {
+            ticket.setDescription(trim(request.description()));
+        }
+        if (request.priority() != null) {
+            ticket.setPriority(request.priority());
+        }
+        if (request.status() != null) {
+            ticket.setStatus(request.status());
+        }
+        ticket.setUpdatedAt(now());
+        return ticketRepository.save(ticket);
+    }
+
+    public void delete(long id) {
+        ticketRepository.delete(findById(id));
+    }
+
+    // The contract's dates have millisecond precision.
+    private static Instant now() {
+        return Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    }
+
+    private static String trim(String text) {
+        return text == null ? null : text.trim();
+    }
+}
