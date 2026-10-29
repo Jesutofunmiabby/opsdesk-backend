@@ -38,9 +38,11 @@ public class QueryParams {
         return Integer.parseInt(text);
     }
 
-    // An optional choice such as status=OPEN. Missing or empty means no filter.
+    // An optional choice such as status=OPEN. Left out means no filter; sent,
+    // it must be one of the choices, so status= with nothing after it is a
+    // bad value, as in the contract and the frontend's mock API.
     public <E extends Enum<E>> E oneOf(String name, String text, Class<E> type, String message) {
-        if (text == null || text.isEmpty()) {
+        if (text == null) {
             return null;
         }
         try {
