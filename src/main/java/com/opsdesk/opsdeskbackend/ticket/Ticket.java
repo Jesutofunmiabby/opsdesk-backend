@@ -2,14 +2,43 @@ package com.opsdesk.opsdeskbackend.ticket;
 
 import java.time.Instant;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
 public class Ticket {
 
+    // PostgreSQL hands out ids from a sequence that only goes up, so a deleted
+    // ticket's id is never reused.
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false, length = 120)
     private String title;
+
+    @Column(nullable = false, length = 5000)
     private String description;
+
+    // Stored as text ("HIGH"), not a number, so reordering the enum can never
+    // change what is saved.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private TicketPriority priority;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private TicketStatus status;
+
+    @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(nullable = false)
     private Instant updatedAt;
 
     public Long getId() {
