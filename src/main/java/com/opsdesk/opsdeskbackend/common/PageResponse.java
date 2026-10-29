@@ -3,6 +3,8 @@ package com.opsdesk.opsdeskbackend.common;
 import java.util.List;
 import java.util.function.Function;
 
+import org.springframework.data.domain.Page;
+
 // One page of a list, in the shape every list endpoint returns.
 public record PageResponse<T>(
         List<T> items,
@@ -11,14 +13,14 @@ public record PageResponse<T>(
         long totalItems,
         int totalPages) {
 
-    // Cuts one page out of the full list. A page past the end gives the last
-    // page, and an empty list still has one (empty) page: page 0.
-    public static <T> PageResponse<T> of(List<T> all, int page, int size) {
-        int totalPages = Math.max(1, (all.size() + size - 1) / size);
-        int actualPage = Math.min(page, totalPages - 1);
-        int from = actualPage * size;
-        int to = Math.min(from + size, all.size());
-        return new PageResponse<>(all.subList(from, to), actualPage, size, all.size(), totalPages);
+    // An empty list still has one (empty) page: page 0.
+    public static <T> PageResponse<T> from(Page<T> page) {
+        return new PageResponse<>(
+                page.getContent(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                Math.max(1, page.getTotalPages()));
     }
 
     public <R> PageResponse<R> map(Function<T, R> mapper) {

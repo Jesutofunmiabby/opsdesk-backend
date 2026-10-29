@@ -5,6 +5,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.opsdesk.opsdeskbackend.common.InvalidQueryException;
@@ -12,6 +15,9 @@ import com.opsdesk.opsdeskbackend.common.PageResponse;
 
 @Service
 public class TicketService {
+
+    // The contract lists items oldest first.
+    private static final Sort OLDEST_FIRST = Sort.by("id");
 
     private final TicketRepository ticketRepository;
 
@@ -30,7 +36,13 @@ public class TicketService {
         if (!problems.isEmpty()) {
             throw new InvalidQueryException(problems);
         }
-        return PageResponse.of(ticketRepository.findAll(), page, size);
+        Page<Ticket> result = ticketRepository.findAll(PageRequest.of(page, size, OLDEST_FIRST));
+        // A page past the end gives the last page instead of an empty one.
+        int lastPage = Math.max(0, result.getTotalPages() - 1);
+        if (page > lastPage) {
+            result = ticketRepository.findAll(PageRequest.of(lastPage, size, OLDEST_FIRST));
+        }
+        return PageResponse.from(result);
     }
 
     public Ticket findById(long id) {
