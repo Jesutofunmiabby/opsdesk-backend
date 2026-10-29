@@ -6,7 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -25,6 +28,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleValidation(ValidationException e) {
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse("VALIDATION_ERROR", e.getMessage(), e.getFields()));
+    }
+
+    // @Valid found fields that break their rules.
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidBody(MethodArgumentNotValidException e) {
+        return handleValidation(ValidationException.fromFieldErrors(e.getFieldErrors()));
+    }
+
+    // The body is empty, broken JSON, an array, or not sent as JSON at all.
+    @ExceptionHandler({HttpMessageNotReadableException.class, HttpMediaTypeNotSupportedException.class})
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(Exception e) {
+        return handleValidation(new ValidationException("The request body must be a JSON object."));
     }
 
     @ExceptionHandler(TicketNotFoundException.class)
