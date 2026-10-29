@@ -9,3 +9,9 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+
+opsdesk:
+  cors:
+    # Frontend addresses allowed to call the API from a browser, separated by
+    # commas.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
