@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +26,8 @@ public class TicketService {
         this.ticketRepository = ticketRepository;
     }
 
-    public PageResponse<Ticket> findPage(int page, int size) {
+    // status is optional: null means tickets of every status.
+    public PageResponse<Ticket> findPage(TicketStatus status, int page, int size) {
         Map<String, String> problems = new LinkedHashMap<>();
         if (page < 0) {
             problems.put("page", "page must be a whole number of 0 or more.");
@@ -36,13 +38,20 @@ public class TicketService {
         if (!problems.isEmpty()) {
             throw new InvalidQueryException(problems);
         }
-        Page<Ticket> result = ticketRepository.findAll(PageRequest.of(page, size, OLDEST_FIRST));
+        Page<Ticket> result = query(status, PageRequest.of(page, size, OLDEST_FIRST));
         // A page past the end gives the last page instead of an empty one.
         int lastPage = Math.max(0, result.getTotalPages() - 1);
         if (page > lastPage) {
-            result = ticketRepository.findAll(PageRequest.of(lastPage, size, OLDEST_FIRST));
+            result = query(status, PageRequest.of(lastPage, size, OLDEST_FIRST));
         }
         return PageResponse.from(result);
+    }
+
+    private Page<Ticket> query(TicketStatus status, Pageable pageable) {
+        if (status == null) {
+            return ticketRepository.findAll(pageable);
+        }
+        return ticketRepository.findByStatus(status, pageable);
     }
 
     public Ticket findById(long id) {

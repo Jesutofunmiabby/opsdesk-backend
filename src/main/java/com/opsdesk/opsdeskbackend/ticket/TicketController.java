@@ -33,9 +33,10 @@ public class TicketController {
 
     @GetMapping
     public PageResponse<TicketResponse> list(
+            @RequestParam(required = false) TicketStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ticketService.findPage(page, size).map(TicketResponse::from);
+        return ticketService.findPage(status, page, size).map(TicketResponse::from);
     }
 
     @GetMapping("/{id}")
@@ -76,16 +77,18 @@ public class TicketController {
                 .body(new ErrorResponse("VALIDATION_ERROR", e.getMessage(), e.getFields()));
     }
 
-    // A value that is not a whole number. The contract treats an id like
-    // /tickets/abc as not found, and page=abc or size=abc as a bad query.
+    // A value of the wrong type. The contract treats an id like /tickets/abc as
+    // not found, and page=abc, size=abc or status=DONE as a bad query.
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         if (e.getName().equals("id")) {
             return handleNotFound(new TicketNotFoundException(String.valueOf(e.getValue())));
         }
-        String message = e.getName().equals("page")
-                ? "page must be a whole number of 0 or more."
-                : "size must be a whole number from 1 to 100.";
+        String message = switch (e.getName()) {
+            case "page" -> "page must be a whole number of 0 or more.";
+            case "size" -> "size must be a whole number from 1 to 100.";
+            default -> "Choose a status: OPEN, IN_PROGRESS, RESOLVED or CLOSED.";
+        };
         return handleInvalidQuery(new InvalidQueryException(Map.of(e.getName(), message)));
     }
 }
