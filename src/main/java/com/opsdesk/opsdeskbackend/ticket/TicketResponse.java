@@ -12,7 +12,9 @@ public record TicketResponse(
         String createdAt,
         String updatedAt,
         Long assigneeId,
-        Long createdById) {
+        String assigneeName,
+        Long createdById,
+        String createdByName) {
 
     public static TicketResponse from(Ticket ticket) {
         return new TicketResponse(
@@ -24,12 +26,20 @@ public record TicketResponse(
                 ApiDates.format(ticket.getCreatedAt()),
                 ApiDates.format(ticket.getUpdatedAt()),
                 idOf(ticket.getAssignee()),
-                idOf(ticket.getCreatedBy()));
+                nameOf(ticket.getAssignee()),
+                idOf(ticket.getCreatedBy()),
+                nameOf(ticket.getCreatedBy()));
     }
 
     // Reading the id of a lazy user does not load the rest of it from the
     // database.
     private static Long idOf(AppUser user) {
         return user == null ? null : user.getId();
+    }
+
+    // Reading the name does: TicketRepository loads the users with the
+    // tickets, so this is not a query per ticket.
+    private static String nameOf(AppUser user) {
+        return user == null ? null : user.getName();
     }
 }
