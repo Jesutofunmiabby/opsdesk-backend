@@ -118,6 +118,27 @@ of each one.
 Every error has the contract's shape:
 `{ "error": "NOT_FOUND", "message": "...", "fields": { ... } }`.
 
+## Who can do what
+
+**Authentication** answers "who are you?", and **authorization** answers
+"what are you allowed to do?". In OpsDesk, logging in with your email and
+password is authentication, and only an ADMIN being allowed to delete a
+ticket is authorization.
+
+Every user has one of four roles. This table is the rule for each action:
+
+| Action | ADMIN | MANAGER | AGENT | USER |
+|--------|-------|---------|-------|------|
+| View tickets | all | all | all | own only |
+| Create ticket | yes | yes | yes | yes |
+| Edit ticket | any | any | assigned | own, if OPEN |
+| Assign ticket | yes | yes | no | no |
+| Delete ticket | yes | no | no | no |
+| List users | yes | yes | no | no |
+
+The API does not check these rules yet: logins and these checks are being
+added next.
+
 ## How the code is organised
 
 ```
