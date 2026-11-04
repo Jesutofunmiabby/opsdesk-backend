@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,8 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithAnonymousUser;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -34,13 +36,15 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.opsdesk.opsdeskbackend.security.JsonAuthenticationEntryPoint;
 import com.opsdesk.opsdeskbackend.security.JwtService;
 import com.opsdesk.opsdeskbackend.security.SecurityConfig;
+import com.opsdesk.opsdeskbackend.security.WithAuthUser;
+import com.opsdesk.opsdeskbackend.user.UserRole;
 
 // Sends real JSON to TicketController, so these tests cover how the body is
 // read as well as how it is checked. The service is a mock: no database. The
 // real security chain runs, and every test is logged in unless it says not.
 @WebMvcTest(TicketController.class)
 @Import({SecurityConfig.class, JwtService.class, JsonAuthenticationEntryPoint.class})
-@WithMockUser
+@WithAuthUser
 class TicketControllerTest {
 
     @Autowired
@@ -49,9 +53,11 @@ class TicketControllerTest {
     @MockitoBean
     private TicketService ticketService;
 
+    private Ticket ticket;
+
     @BeforeEach
     void setUp() {
-        Ticket ticket = new Ticket();
+        ticket = new Ticket();
         ticket.setId(1L);
         ticket.setTitle("Projector in room 4 has no sound");
         ticket.setDescription("The picture works but the speakers stay silent.");
@@ -59,9 +65,10 @@ class TicketControllerTest {
         ticket.setStatus(TicketStatus.OPEN);
         ticket.setCreatedAt(Instant.parse("2026-10-15T09:30:00Z"));
         ticket.setUpdatedAt(Instant.parse("2026-10-15T09:30:00Z"));
-        when(ticketService.findById(1L)).thenReturn(ticket);
-        when(ticketService.update(anyLong(), any(UpdateTicketRequest.class))).thenReturn(ticket);
-        when(ticketService.create(any(CreateTicketRequest.class))).thenReturn(ticket);
+        when(ticketService.findVisible(any(), eq(1L))).thenReturn(ticket);
+        when(ticketService.findEditable(any(), eq(1L))).thenReturn(ticket);
+        when(ticketService.update(any(), anyLong(), any(UpdateTicketRequest.class))).thenReturn(ticket);
+        when(ticketService.create(any(), any(CreateTicketRequest.class))).thenReturn(ticket);
     }
 
     @ParameterizedTest
@@ -79,7 +86,7 @@ class TicketControllerTest {
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").value("Check the highlighted fields."))
                 .andExpect(jsonPath("$.fields.title").value("Enter a title."));
-        verify(ticketService, never()).update(anyLong(), any(UpdateTicketRequest.class));
+        verify(ticketService, never()).update(any(), anyLong(), any(UpdateTicketRequest.class));
     }
 
     @ParameterizedTest
@@ -88,7 +95,7 @@ class TicketControllerTest {
         patchTicket("{\"description\": " + value + "}")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fields.description").value("Enter a description."));
-        verify(ticketService, never()).update(anyLong(), any(UpdateTicketRequest.class));
+        verify(ticketService, never()).update(any(), anyLong(), any(UpdateTicketRequest.class));
     }
 
     @Test
@@ -98,7 +105,7 @@ class TicketControllerTest {
                 .andExpect(jsonPath("$.fields.priority").value("Choose a priority: LOW, MEDIUM or HIGH."))
                 .andExpect(jsonPath("$.fields.status")
                         .value("Choose a status: OPEN, IN_PROGRESS, RESOLVED or CLOSED."));
-        verify(ticketService, never()).update(anyLong(), any(UpdateTicketRequest.class));
+        verify(ticketService, never()).update(any(), anyLong(), any(UpdateTicketRequest.class));
     }
 
     @Test
@@ -107,7 +114,7 @@ class TicketControllerTest {
                 .andExpect(status().isOk());
 
         ArgumentCaptor<UpdateTicketRequest> sent = ArgumentCaptor.forClass(UpdateTicketRequest.class);
-        verify(ticketService).update(anyLong(), sent.capture());
+        verify(ticketService).update(any(), anyLong(), sent.capture());
         assertNull(sent.getValue().title());
         assertNull(sent.getValue().description());
         assertNull(sent.getValue().priority());
@@ -122,7 +129,7 @@ class TicketControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fields.title").value("Enter a title."))
                 .andExpect(jsonPath("$.fields.description").value("Enter a description."));
-        verify(ticketService, never()).create(any(CreateTicketRequest.class));
+        verify(ticketService, never()).create(any(), any(CreateTicketRequest.class));
     }
 
     @Test
@@ -140,7 +147,57 @@ class TicketControllerTest {
         mockMvc.perform(get("/api/v1/tickets"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHENTICATED"));
-        verify(ticketService, never()).findPage(any(), anyInt(), anyInt());
+        verify(ticketService, never()).findPage(any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    @WithAuthUser(role = UserRole.USER)
+    void aUserCannotDeleteATicket() throws Exception {
+        mockMvc.perform(delete("/api/v1/tickets/1"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("You are not allowed to do this."));
+        verify(ticketService, never()).delete(anyLong());
+    }
+
+    @Test
+    @WithAuthUser(role = UserRole.ADMIN)
+    void anAdminCanDeleteATicket() throws Exception {
+        mockMvc.perform(delete("/api/v1/tickets/1"))
+                .andExpect(status().isNoContent());
+        verify(ticketService).delete(1L);
+    }
+
+    @Test
+    @WithAuthUser(role = UserRole.AGENT)
+    void anAgentCannotAssignATicket() throws Exception {
+        mockMvc.perform(patch("/api/v1/tickets/1/assignee")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"assigneeId\": 3}"))
+                .andExpect(status().isForbidden());
+        verify(ticketService, never()).assign(anyLong(), any());
+    }
+
+    @Test
+    @WithAuthUser(role = UserRole.MANAGER)
+    void aManagerCanAssignATicket() throws Exception {
+        when(ticketService.assign(1L, 3L)).thenReturn(ticket);
+
+        mockMvc.perform(patch("/api/v1/tickets/1/assignee")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"assigneeId\": 3}"))
+                .andExpect(status().isOk());
+        verify(ticketService).assign(1L, 3L);
+    }
+
+    @Test
+    @WithAuthUser(role = UserRole.AGENT)
+    void anEditTheServiceDeniesIs403BeforeTheBodyIsChecked() throws Exception {
+        when(ticketService.findEditable(any(), eq(1L))).thenThrow(new AccessDeniedException("no"));
+
+        patchTicket("{\"title\": null}")
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
     }
 
     private ResultActions patchTicket(String body) throws Exception {

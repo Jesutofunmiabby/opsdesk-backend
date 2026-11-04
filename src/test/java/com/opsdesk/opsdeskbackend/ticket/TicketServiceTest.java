@@ -16,6 +16,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.opsdesk.opsdeskbackend.security.AuthUser;
+import com.opsdesk.opsdeskbackend.user.AppUserRepository;
+import com.opsdesk.opsdeskbackend.user.UserRole;
+
 // Tests TicketService on its own: the repository is a Mockito mock, so no
 // database or Spring is needed.
 @ExtendWith(MockitoExtension.class)
@@ -24,11 +28,14 @@ class TicketServiceTest {
     @Mock
     private TicketRepository ticketRepository;
 
+    @Mock
+    private AppUserRepository appUserRepository;
+
     private TicketService ticketService;
 
     @BeforeEach
     void setUp() {
-        ticketService = new TicketService(ticketRepository);
+        ticketService = new TicketService(ticketRepository, appUserRepository);
     }
 
     @Test
@@ -40,7 +47,7 @@ class TicketServiceTest {
                 "The picture works but the speakers stay silent.",
                 "MEDIUM");
 
-        Ticket ticket = ticketService.create(request);
+        Ticket ticket = ticketService.create(new AuthUser(5L, UserRole.USER), request);
 
         assertEquals("Projector in room 4 has no sound", ticket.getTitle());
         assertEquals(TicketPriority.MEDIUM, ticket.getPriority());
