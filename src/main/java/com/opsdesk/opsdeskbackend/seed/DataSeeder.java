@@ -18,7 +18,8 @@ import com.opsdesk.opsdeskbackend.user.UserRole;
 
 // Runs once when the app starts. Adds sample projects and users to an empty
 // database so the frontend has something to show. Data that is already there
-// is left alone.
+// is left alone. The sample users have no password, so nobody can log in as
+// them: real accounts come from register (see the README for the first admin).
 @Component
 public class DataSeeder implements CommandLineRunner {
 
