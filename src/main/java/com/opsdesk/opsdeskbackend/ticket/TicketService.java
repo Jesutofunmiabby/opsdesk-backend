@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -33,13 +34,13 @@ public class TicketService {
 
     // page and size have already been checked against the contract's ranges.
     // A USER only ever gets the tickets they created, whatever the filters say.
-    public PageResponse<Ticket> findPage(AuthUser actor, TicketFilter filter, int page, int size) {
+    public PageResponse<Ticket> findPage(AuthUser actor, TicketFilter filter, int page, int size, Sort sort) {
         Specification<Ticket> where = filter.toSpecification();
         if (actor.role() == UserRole.USER) {
             where = where.and((root, query, cb) -> cb.equal(root.get("createdBy").get("id"), actor.id()));
         }
         Specification<Ticket> visible = where;
-        return PageResponse.fetch(page, size, pageable -> ticketRepository.findAll(visible, pageable));
+        return PageResponse.fetch(page, size, sort, pageable -> ticketRepository.findAll(visible, pageable));
     }
 
     // Someone else's ticket is "not found" for a USER, the same as a ticket that

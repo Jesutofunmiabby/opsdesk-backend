@@ -22,10 +22,15 @@ public record PageResponse<T>(
     // Runs a paged query, oldest first. A page past the end gives the last
     // page instead of an empty one. page and size must already be checked.
     public static <T> PageResponse<T> fetch(int page, int size, Function<Pageable, Page<T>> query) {
-        Page<T> result = query.apply(PageRequest.of(page, size, OLDEST_FIRST));
+        return fetch(page, size, OLDEST_FIRST, query);
+    }
+
+    // The same, in the given order.
+    public static <T> PageResponse<T> fetch(int page, int size, Sort sort, Function<Pageable, Page<T>> query) {
+        Page<T> result = query.apply(PageRequest.of(page, size, sort));
         int lastPage = Math.max(0, result.getTotalPages() - 1);
         if (page > lastPage) {
-            result = query.apply(PageRequest.of(lastPage, size, OLDEST_FIRST));
+            result = query.apply(PageRequest.of(lastPage, size, sort));
         }
         return from(result);
     }

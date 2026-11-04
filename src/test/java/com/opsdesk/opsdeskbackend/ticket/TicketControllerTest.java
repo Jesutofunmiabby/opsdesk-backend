@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.test.context.support.WithAnonymousUser;
@@ -33,6 +35,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.opsdesk.opsdeskbackend.common.PageResponse;
 import com.opsdesk.opsdeskbackend.security.JsonAuthenticationEntryPoint;
 import com.opsdesk.opsdeskbackend.security.JwtService;
 import com.opsdesk.opsdeskbackend.security.SecurityConfig;
@@ -147,7 +150,7 @@ class TicketControllerTest {
         mockMvc.perform(get("/api/v1/tickets"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("UNAUTHENTICATED"));
-        verify(ticketService, never()).findPage(any(), any(), anyInt(), anyInt());
+        verify(ticketService, never()).findPage(any(), any(), anyInt(), anyInt(), any());
     }
 
     @Test
@@ -198,6 +201,32 @@ class TicketControllerTest {
         patchTicket("{\"title\": null}")
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
+
+    @Test
+    void theListFiltersAndSortAreSentToTheService() throws Exception {
+        when(ticketService.findPage(any(), any(), anyInt(), anyInt(), any()))
+                .thenReturn(new PageResponse<>(List.of(), 0, 20, 0, 1));
+
+        mockMvc.perform(get("/api/v1/tickets")
+                        .param("status", "OPEN").param("priority", "HIGH")
+                        .param("assigneeId", "9").param("q", "  VPN  ")
+                        .param("sort", "createdAt,desc"))
+                .andExpect(status().isOk());
+
+        TicketFilter expected = new TicketFilter(TicketStatus.OPEN, TicketPriority.HIGH, 9L, "VPN");
+        Sort newestFirst = Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by("id"));
+        verify(ticketService).findPage(any(), eq(expected), eq(0), eq(20), eq(newestFirst));
+    }
+
+    @Test
+    void badListParametersAreAllReportedTogether() throws Exception {
+        mockMvc.perform(get("/api/v1/tickets").param("sort", "priority,up").param("assigneeId", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Check the query parameters."))
+                .andExpect(jsonPath("$.fields.sort")
+                        .value("sort must be id, title, createdAt, updatedAt, optionally followed by ,asc or ,desc."))
+                .andExpect(jsonPath("$.fields.assigneeId").value("assigneeId must be a whole number."));
     }
 
     private ResultActions patchTicket(String body) throws Exception {
