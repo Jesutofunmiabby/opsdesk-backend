@@ -10,6 +10,12 @@ spring:
       ddl-auto: update
     open-in-view: false
 
+logging:
+  level:
+    # Set SQL_LOG=debug to print every SQL statement Hibernate runs, for
+    # example to count the queries behind one request.
+    org.hibernate.SQL: ${SQL_LOG:info}
+
 opsdesk:
   cors:
     # Frontend addresses allowed to call the API from a browser, separated by
