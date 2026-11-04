@@ -115,6 +115,7 @@ of each one.
 | GET | `/tickets/{id}` | One ticket. |
 | POST | `/tickets` | Creates a ticket: `201` with a `Location` header. |
 | PATCH | `/tickets/{id}` | Changes some of a ticket's fields. |
+| PATCH | `/tickets/{id}/assignee` | Assigns a ticket: `{"assigneeId": 3}`, or `null` to unassign. Only an ADMIN, MANAGER or AGENT can be assigned. |
 | DELETE | `/tickets/{id}` | Deletes a ticket: `204`. |
 | GET | `/projects` | One page of projects. |
 | GET | `/projects/{id}` | One project. |
@@ -170,8 +171,15 @@ Every user has one of four roles. This table is the rule for each action:
 | Delete ticket | yes | no | no | no |
 | List users | yes | yes | no | no |
 
-The API does not check these rules yet: logins and these checks are being
-added next.
+How the API applies it:
+
+- A missing or invalid token is `401 UNAUTHENTICATED`. Logged in but not
+  allowed is `403 FORBIDDEN`.
+- A USER only sees tickets they created. Anyone else's ticket is
+  `404 NOT_FOUND` for them, the same as a ticket that does not exist.
+- "Assigned" means the ticket's `assigneeId` is the AGENT's id; "own" means
+  its `createdById` is the USER's id. The creator is always taken from the
+  login, never from the request body.
 
 ## How the code is organised
 
