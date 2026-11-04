@@ -60,11 +60,15 @@ It starts on <http://localhost:8080>. Hibernate creates or updates the tables
 on startup, and the first time it adds four sample projects and four sample
 users so the frontend has something to show. Stop it with Ctrl+C.
 
-Try it:
+Try it. Every endpoint except register and login needs a token, so register
+first and copy the `token` from the answer:
 
 ```bash
-curl http://localhost:8080/api/v1/tickets
+curl -H "Content-Type: application/json" -d '{"name":"Your Name","email":"you@example.com","password":"at least 8 characters"}' http://localhost:8080/api/v1/auth/register
+curl -H "Authorization: Bearer <token>" http://localhost:8080/api/v1/tickets
 ```
+
+Without the header, the answer is `401` with `"error": "UNAUTHENTICATED"`.
 
 ## Environment variables
 
@@ -77,6 +81,7 @@ it.
 | `DB_USER` | `opsdesk` | The PostgreSQL user name. |
 | `DB_PASSWORD` | `opsdesk` | The PostgreSQL password. The default only fits the local Docker database: set a real password this way, never in a committed file. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | The frontend addresses allowed to call the API from a browser, separated by commas. |
+| `JWT_SECRET` | a local-only value | Signs login tokens. At least 32 characters; the app does not start with a shorter one. Anyone who knows it can make a token for any user, so set a long random value anywhere but your own computer. |
 
 For example, in Git Bash:
 
@@ -115,8 +120,37 @@ of each one.
 | GET | `/projects/{id}` | One project. |
 | GET | `/users` | One page of users. |
 
+| POST | `/auth/register` | Creates an account, always with the role `USER`: `201` with a token. No token needed. |
+| POST | `/auth/login` | `200` with a token. No token needed. |
+| GET | `/auth/me` | The logged-in user. |
+
+Every endpoint except register and login needs the header
+`Authorization: Bearer <token>`, and answers `401` without a valid one.
+A token lasts 24 hours (`opsdesk.jwt.expiry` in `application.yml`).
+
 Every error has the contract's shape:
 `{ "error": "NOT_FOUND", "message": "...", "fields": { ... } }`.
+
+## Accounts and the first admin
+
+Register always makes a `USER`, and the sample users have no password, so the
+first admin is made by hand. Register an account, then in psql
+(`docker exec -it opsdesk-db psql -U opsdesk`):
+
+```sql
+UPDATE app_user SET role = 'ADMIN' WHERE email = 'you@example.com';
+```
+
+Log in again afterwards: the role is stored in the token, so an old token
+still has the old role.
+
+If your database was created before the four roles existed, it only allows
+`AGENT` and `ADMIN`, and register fails. Run this once in psql to fix it:
+
+```sql
+ALTER TABLE app_user DROP CONSTRAINT app_user_role_check;
+ALTER TABLE app_user ADD CONSTRAINT app_user_role_check CHECK (role IN ('ADMIN', 'MANAGER', 'AGENT', 'USER'));
+```
 
 ## Who can do what
 
