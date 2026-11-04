@@ -1,6 +1,9 @@
 package com.opsdesk.opsdeskbackend.ticket;
 
 import com.opsdesk.opsdeskbackend.common.Text;
+import com.opsdesk.opsdeskbackend.common.TextOnlyDeserializer;
+
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -11,14 +14,17 @@ public record CreateTicketRequest(
         @NotBlank(message = "Enter a title.")
         @Size(min = 3, message = "The title must be at least 3 characters.")
         @Size(max = 120, message = "The title must be 120 characters or fewer.")
+        @JsonDeserialize(using = TextOnlyDeserializer.class)
         String title,
 
         @NotBlank(message = "Enter a description.")
         @Size(max = 5000, message = "The description must be 5000 characters or fewer.")
+        @JsonDeserialize(using = TextOnlyDeserializer.class)
         String description,
 
         @NotNull(message = "Choose a priority: LOW, MEDIUM or HIGH.")
         @Pattern(regexp = "LOW|MEDIUM|HIGH", message = "Choose a priority: LOW, MEDIUM or HIGH.")
+        @JsonDeserialize(using = TextOnlyDeserializer.class)
         String priority) {
 
     // Runs before validation: the contract trims text before checking it, so
