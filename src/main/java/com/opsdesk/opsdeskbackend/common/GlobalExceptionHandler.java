@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -63,6 +64,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnauthenticated(UnauthenticatedException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ErrorResponse("UNAUTHENTICATED", e.getMessage()));
+    }
+
+    // Logged in, but not allowed: a @PreAuthorize role check failed, or the
+    // service's ownership rules said no.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse("FORBIDDEN", "You are not allowed to do this."));
     }
 
     @ExceptionHandler(ConflictException.class)

@@ -3,6 +3,7 @@ package com.opsdesk.opsdeskbackend.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -12,8 +13,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 // The security filter chain: the checks every request passes through before it
-// reaches a controller.
+// reaches a controller. @EnableMethodSecurity turns on the @PreAuthorize role
+// checks on controller methods.
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
