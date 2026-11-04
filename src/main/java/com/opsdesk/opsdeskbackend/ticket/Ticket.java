@@ -58,6 +58,12 @@ public class Ticket {
     @JoinColumn(name = "assignee_id")
     private AppUser assignee;
 
+    // The person who made the ticket, set from their login on create and never
+    // changed. Saved as created_by_id. Null for tickets made before logins.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id", updatable = false)
+    private AppUser createdBy;
+
     public Long getId() {
         return id;
     }
@@ -128,5 +134,13 @@ public class Ticket {
 
     public void setAssignee(AppUser assignee) {
         this.assignee = assignee;
+    }
+
+    public AppUser getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(AppUser createdBy) {
+        this.createdBy = createdBy;
     }
 }
