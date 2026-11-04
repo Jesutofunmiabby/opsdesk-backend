@@ -81,6 +81,7 @@ it.
 | `DB_USER` | `opsdesk` | The PostgreSQL user name. |
 | `DB_PASSWORD` | `opsdesk` | The PostgreSQL password. The default only fits the local Docker database: set a real password this way, never in a committed file. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | The frontend addresses allowed to call the API from a browser, separated by commas. |
+| `SQL_LOG` | `info` | Set to `debug` to print every SQL statement Hibernate runs. |
 | `JWT_SECRET` | a local-only value | Signs login tokens. At least 32 characters; the app does not start with a shorter one. Anyone who knows it can make a token for any user, so set a long random value anywhere but your own computer. |
 
 For example, in Git Bash:
@@ -111,7 +112,7 @@ of each one.
 
 | Method | Path | What it does |
 |--------|------|--------------|
-| GET | `/tickets` | One page of tickets. Takes `page`, `size`, `status`, `priority` and `search`. |
+| GET | `/tickets` | One page of tickets. Takes `page`, `size`, `sort`, `status`, `priority`, `assigneeId` and `q`, for example `?status=OPEN&q=vpn&sort=createdAt,desc`. `sort` takes `id`, `title`, `createdAt` or `updatedAt`, then optionally `,asc` or `,desc`; the default is oldest first. A USER only ever gets tickets they created. |
 | GET | `/tickets/{id}` | One ticket. |
 | POST | `/tickets` | Creates a ticket: `201` with a `Location` header. |
 | PATCH | `/tickets/{id}` | Changes some of a ticket's fields. |
@@ -180,6 +181,26 @@ How the API applies it:
 - "Assigned" means the ticket's `assigneeId` is the AGENT's id; "own" means
   its `createdById` is the USER's id. The creator is always taken from the
   login, never from the request body.
+
+## Database queries and the N+1 problem
+
+Each ticket in the JSON shows its assignee's and creator's names, which are
+stored in `app_user`, not in `ticket`. Counted with `SQL_LOG=debug` for
+`GET /tickets?size=20&sort=id,desc` (20 tickets, 5 different users on the
+page):
+
+| | SQL statements |
+|---|---|
+| Before: tickets only, users loaded when their name is read | **7**: 1 for the page, 1 count, then 1 per user (5) |
+| After: `@EntityGraph(attributePaths = {"assignee", "createdBy"})` | **2**: 1 for the page with the users joined in, 1 count |
+
+Before the fix the count grows with the page: 20 tickets with 40 different
+users would be 42 statements. After it, it is always 2. (The "before" was
+measured with `spring.jpa.open-in-view=true`, Spring Boot's default; with
+this project's `false`, reading a name after the query fails instead.)
+
+The `ticket` table also has indexes on `status`, `priority`, `assignee_id`
+and `created_by_id`, the columns the list filters by.
 
 ## How the code is organised
 
