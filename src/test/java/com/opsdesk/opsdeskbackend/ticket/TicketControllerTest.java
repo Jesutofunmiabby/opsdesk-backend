@@ -3,10 +3,12 @@ package com.opsdesk.opsdeskbackend.ticket;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,14 +23,24 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.opsdesk.opsdeskbackend.security.JsonAuthenticationEntryPoint;
+import com.opsdesk.opsdeskbackend.security.JwtService;
+import com.opsdesk.opsdeskbackend.security.SecurityConfig;
+
 // Sends real JSON to TicketController, so these tests cover how the body is
-// read as well as how it is checked. The service is a mock: no database.
+// read as well as how it is checked. The service is a mock: no database. The
+// real security chain runs, and every test is logged in unless it says not.
 @WebMvcTest(TicketController.class)
+@Import({SecurityConfig.class, JwtService.class, JsonAuthenticationEntryPoint.class})
+@WithMockUser
 class TicketControllerTest {
 
     @Autowired
@@ -120,6 +132,15 @@ class TicketControllerTest {
                         .content("{\"title\": \"Projector in room 4 has no sound\","
                                 + " \"description\": \"The speakers stay silent.\", \"priority\": \"LOW\"}"))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithAnonymousUser
+    void ticketsWithoutALoginAre401() throws Exception {
+        mockMvc.perform(get("/api/v1/tickets"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHENTICATED"));
+        verify(ticketService, never()).findPage(any(), anyInt(), anyInt());
     }
 
     private ResultActions patchTicket(String body) throws Exception {

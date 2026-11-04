@@ -31,6 +31,11 @@ public class AppUser {
     @Column(nullable = false)
     private String jobTitle;
 
+    // A BCrypt hash, never the password itself. Null for a user who has no
+    // password yet, such as the sample users: they cannot log in.
+    @Column(name = "password_hash", length = 60)
+    private String passwordHash;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
@@ -63,6 +68,14 @@ public class AppUser {
 
     public String getJobTitle() {
         return jobTitle;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public UserRole getRole() {
