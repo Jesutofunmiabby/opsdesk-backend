@@ -1,0 +1,17 @@
+# Used by tests marked @ActiveProfiles("test"). It replaces the PostgreSQL
+# connection in src/main/resources/application.yml with an in-memory H2
+# database, so the tests need no Docker container. Everything else (the JWT
+# settings, CORS) still comes from application.yml.
+spring:
+  datasource:
+    # mem: lives only in memory and is gone when the tests finish.
+    # MODE=PostgreSQL makes H2 behave like PostgreSQL where it can.
+    # DB_CLOSE_DELAY=-1 keeps it open between connections during the run.
+    url: jdbc:h2:mem:opsdesk;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      # Build the tables from the entities at start, drop them at the end.
+      ddl-auto: create-drop
