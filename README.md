@@ -279,6 +279,12 @@ src/main/java/com/opsdesk/opsdeskbackend/
   project/   Project entity, controller, service, repository and DTO
   user/      AppUser entity (the table is app_user, because user is reserved
              in PostgreSQL), controller, service, repository and DTO
+  auth/      AuthController and AuthService for register, login and /auth/me,
+             and their request and response DTOs
+  security/  SecurityConfig (the filter chain and which paths need a token),
+             JwtService (makes and checks tokens), JwtAuthFilter (reads the
+             Authorization header on each request), the JSON 401 answer, and
+             AuthUser, the logged-in user's id and role
   common/    shared pieces: the global exception handler, the error and page
              shapes, query parameter checks, dates and text trimming
   config/    CorsConfig, which lets the frontend call the API
