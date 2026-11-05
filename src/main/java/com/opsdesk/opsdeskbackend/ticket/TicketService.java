@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import com.opsdesk.opsdeskbackend.common.PageResponse;
+import com.opsdesk.opsdeskbackend.common.UnauthenticatedException;
 import com.opsdesk.opsdeskbackend.common.ValidationException;
 import com.opsdesk.opsdeskbackend.security.AuthUser;
 import com.opsdesk.opsdeskbackend.user.AppUser;
@@ -78,14 +79,19 @@ public class TicketService {
     }
 
     // The creator always comes from the login, never from the request body.
+    // The creator is fully loaded, not a placeholder, because the response
+    // shows their name after the database session has closed. A token for an
+    // account that has since been deleted is a 401, as on /auth/me.
     public Ticket create(AuthUser actor, CreateTicketRequest request) {
+        AppUser creator = appUserRepository.findById(actor.id())
+                .orElseThrow(() -> new UnauthenticatedException("Log in to continue."));
         Instant now = now();
         Ticket ticket = new Ticket();
         ticket.setTitle(request.title());
         ticket.setDescription(request.description());
         ticket.setPriority(TicketPriority.valueOf(request.priority()));
         ticket.setStatus(TicketStatus.OPEN);
-        ticket.setCreatedBy(appUserRepository.getReferenceById(actor.id()));
+        ticket.setCreatedBy(creator);
         ticket.setCreatedAt(now);
         ticket.setUpdatedAt(now);
         return ticketRepository.save(ticket);
