@@ -115,7 +115,7 @@ class TicketPermissionTest {
     @Test
     void createSetsTheCreatorFromTheLogin() {
         AppUser creator = user(4L, UserRole.USER);
-        when(appUserRepository.getReferenceById(4L)).thenReturn(creator);
+        when(appUserRepository.findById(4L)).thenReturn(Optional.of(creator));
         when(ticketRepository.save(any(Ticket.class))).thenAnswer(call -> call.getArgument(0));
 
         Ticket created = ticketService.create(CREATOR,

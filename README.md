@@ -60,15 +60,36 @@ It starts on <http://localhost:8080>. Hibernate creates or updates the tables
 on startup, and the first time it adds four sample projects and four sample
 users so the frontend has something to show. Stop it with Ctrl+C.
 
-Try it. Every endpoint except register and login needs a token, so register
-first and copy the `token` from the answer:
+## Register and log in
 
-```bash
-curl -H "Content-Type: application/json" -d '{"name":"Your Name","email":"you@example.com","password":"at least 8 characters"}' http://localhost:8080/api/v1/auth/register
-curl -H "Authorization: Bearer <token>" http://localhost:8080/api/v1/tickets
-```
+Every endpoint except register and login needs a token.
 
-Without the header, the answer is `401` with `"error": "UNAUTHENTICATED"`.
+1. **Register** once. The answer is `201` with a `token`, and the new account
+   is always a `USER`:
+
+   ```bash
+   curl -H "Content-Type: application/json" -d '{"name":"Your Name","email":"you@example.com","password":"at least 8 characters"}' http://localhost:8080/api/v1/auth/register
+   ```
+
+2. **Log in** whenever you need a new token (for example after it expires, or
+   after your role changes). The answer is `200` with a `token`:
+
+   ```bash
+   curl -H "Content-Type: application/json" -d '{"email":"you@example.com","password":"at least 8 characters"}' http://localhost:8080/api/v1/auth/login
+   ```
+
+   A wrong password and an unknown email both give `401` with the same
+   message, so nobody can find out which emails have accounts.
+
+3. **Send the token** in the `Authorization` header on every other request:
+
+   ```bash
+   curl -H "Authorization: Bearer <token>" http://localhost:8080/api/v1/tickets
+   ```
+
+   Without the header, the answer is `401` with `"error": "UNAUTHENTICATED"`.
+
+To make an account an ADMIN, see [Accounts and the first admin](#accounts-and-the-first-admin).
 
 ## Environment variables
 
@@ -90,20 +111,68 @@ For example, in Git Bash:
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173 ./mvnw spring-boot:run
 ```
 
+To run with your own `JWT_SECRET`, make a long random one and pass it in the
+same way (it is never written to a file):
+
+```bash
+JWT_SECRET=$(openssl rand -base64 48) ./mvnw spring-boot:run
+```
+
+Changing the secret logs everyone out: tokens signed with the old one stop
+working, so everyone has to log in again.
+
 ## Run the tests
 
 ```bash
 ./mvnw test
 ```
 
-The database must be running, because one test starts the whole application,
-which connects to it. The other tests need no database:
+On Windows in Command Prompt or PowerShell, use `mvnw.cmd test`. To run one
+test class, add `-Dtest=`, for example `./mvnw test -Dtest=TicketSecurityIntegrationTest`.
 
-| Test | What it checks |
-|------|----------------|
-| `OpsdeskBackendApplicationTests` | The application starts and connects to PostgreSQL. |
-| `TicketServiceTest` | A new ticket is saved as `OPEN`; deleting a missing ticket throws not-found and deletes nothing. The repository is a Mockito mock. |
-| `TextTest` | Text is trimmed exactly as the frontend trims it, including non-breaking spaces. |
+The tests do not need PostgreSQL or Docker. The tests that start the whole
+application use the `test` profile (`@ActiveProfiles("test")`), which
+`src/test/resources/application-test.yml` points at an in-memory H2 database.
+H2 is built from the entities when the tests start and thrown away when they
+finish. The sample users in it have no password, and there are no tickets, so
+each integration test registers its own users and creates its own tickets.
+
+| Test | Kind | What it checks |
+|------|------|----------------|
+| `OpsdeskBackendApplicationTests` | Whole app on H2 | The application starts. |
+| `TicketSecurityIntegrationTest` | Whole app on H2, MockMvc | With real tokens from register and login: no token is `401`, a USER deleting a ticket is `403` and the ticket stays, an ADMIN deleting is `204` and the ticket is gone, and a USER's list only has the tickets they created. Nothing is mocked. |
+| `TicketControllerTest` | MockMvc, service mocked | The ticket endpoints through the real security chain: `401` without a login, `403` for a USER delete and an AGENT assign, `204` for an ADMIN delete, `200` for a MANAGER assign, and bad bodies and list parameters give the contract's error messages. |
+| `AuthControllerTest` | MockMvc, service mocked | Register and login need no token; bad fields give the contract's messages; `/auth/me` is `401` without a token or with a broken one, and never shows the password hash. |
+| `UserControllerTest` | MockMvc, service mocked | The "List users" row: a MANAGER can, an AGENT or a USER gets `403`. |
+| `TicketPermissionTest` | Mockito | The ownership rules in `TicketService`: who can edit which ticket, a USER cannot see someone else's ticket, the creator comes from the login, and only staff can be assigned. |
+| `TicketServiceTest` | Mockito | A new ticket is saved as `OPEN`; a token for a deleted account cannot create one; deleting a missing ticket throws not-found and deletes nothing. |
+| `AuthServiceTest` | Mockito | Passwords are saved as BCrypt hashes; a taken email is a conflict; a wrong password and an unknown email give the same error. |
+| `JwtServiceTest` | Plain JUnit | A token reads back as the same user and role; changed, expired and wrongly signed tokens are rejected; a secret under 32 bytes stops the app. |
+| `QueryParamsTest` | Plain JUnit | The list's `sort` and id parameters, and their error messages. |
+| `TicketResponseTest` | Plain JUnit | The ticket JSON shows the assignee's and creator's id and name, or `null`. |
+| `TextTest` | Plain JUnit | Text is trimmed exactly as the frontend trims it, including non-breaking spaces. |
+
+"MockMvc" sends real HTTP requests to the controllers without starting a
+server. "Mockito" replaces the database with a mock, so only the class's own
+rules are tested.
+
+The permission rules in [Who can do what](#who-can-do-what) are checked by
+these tests:
+
+| Rule | Test |
+|------|------|
+| A USER cannot edit someone else's ticket | `TicketPermissionTest.aUserCanOnlyEditTheirOwnTicketWhileItIsOpen` |
+| An AGENT can edit a ticket assigned to them, and no other | `TicketPermissionTest.anAgentCanOnlyEditTicketsAssignedToThem` |
+| A USER cannot edit their own ticket once it is not `OPEN` | `TicketPermissionTest.aUserCanOnlyEditTheirOwnTicketWhileItIsOpen` |
+| An ADMIN or MANAGER can edit any ticket | `TicketPermissionTest.adminAndManagerCanEditAnyTicket` |
+| No token is `401` | `TicketSecurityIntegrationTest.noTokenIs401` |
+| Only an ADMIN can delete | `TicketSecurityIntegrationTest.aUserCannotDeleteATicket`, `anAdminCanDeleteATicket` |
+| A USER only sees their own tickets | `TicketSecurityIntegrationTest.aUsersListOnlyContainsTheirOwnTickets` |
+
+To check that a test really guards its rule, break the rule on purpose and run
+the tests again. For example, removing the USER filter in
+`TicketService.findPage` makes `aUsersListOnlyContainsTheirOwnTickets` fail with
+`JSON path "$.totalItems" expected:<1> but was:<2>`.
 
 ## Endpoints
 
@@ -121,7 +190,6 @@ of each one.
 | GET | `/projects` | One page of projects. |
 | GET | `/projects/{id}` | One project. |
 | GET | `/users` | One page of users. |
-
 | POST | `/auth/register` | Creates an account, always with the role `USER`: `201` with a token. No token needed. |
 | POST | `/auth/login` | `200` with a token. No token needed. |
 | GET | `/auth/me` | The logged-in user. |

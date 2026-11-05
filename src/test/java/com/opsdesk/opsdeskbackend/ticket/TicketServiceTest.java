@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -16,7 +17,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.opsdesk.opsdeskbackend.common.UnauthenticatedException;
 import com.opsdesk.opsdeskbackend.security.AuthUser;
+import com.opsdesk.opsdeskbackend.user.AppUser;
 import com.opsdesk.opsdeskbackend.user.AppUserRepository;
 import com.opsdesk.opsdeskbackend.user.UserRole;
 
@@ -40,6 +43,8 @@ class TicketServiceTest {
 
     @Test
     void createSavesAnOpenTicket() {
+        when(appUserRepository.findById(5L)).thenReturn(Optional.of(
+                new AppUser("Test User", "user5@example.com", "", UserRole.USER, Instant.now())));
         // The mock hands back whatever ticket it is asked to save.
         when(ticketRepository.save(any(Ticket.class))).thenAnswer(call -> call.getArgument(0));
         CreateTicketRequest request = new CreateTicketRequest(
@@ -55,6 +60,16 @@ class TicketServiceTest {
         assertNotNull(ticket.getCreatedAt());
         assertEquals(ticket.getCreatedAt(), ticket.getUpdatedAt());
         verify(ticketRepository).save(ticket);
+    }
+
+    @Test
+    void createWithATokenForADeletedAccountIs401AndSavesNothing() {
+        when(appUserRepository.findById(5L)).thenReturn(Optional.empty());
+        CreateTicketRequest request = new CreateTicketRequest("Printer jams", "Every page jams.", "LOW");
+
+        assertThrows(UnauthenticatedException.class,
+                () -> ticketService.create(new AuthUser(5L, UserRole.USER), request));
+        verify(ticketRepository, never()).save(any(Ticket.class));
     }
 
     @Test
