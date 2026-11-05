@@ -1,7 +1,9 @@
 package com.opsdesk.opsdeskbackend.ticket;
 
 import java.net.URI;
+import java.util.List;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +29,10 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/tickets")
 public class TicketController {
 
+    // Fields the list can be sorted by. priority and status are left out: they
+    // are stored as text, so they would sort alphabetically (HIGH, LOW, MEDIUM).
+    private static final List<String> SORTABLE = List.of("id", "title", "createdAt", "updatedAt");
+
     private final TicketService ticketService;
 
     public TicketController(TicketService ticketService) {
@@ -43,18 +49,22 @@ public class TicketController {
             @RequestParam(required = false) String size,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String priority,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String assigneeId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String sort) {
         QueryParams params = new QueryParams();
         int pageNumber = params.page(page);
         int pageSize = params.size(size);
+        Sort order = params.sort(sort, SORTABLE);
         TicketStatus statusFilter = params.oneOf("status", status, TicketStatus.class,
                 "Choose a status: OPEN, IN_PROGRESS, RESOLVED or CLOSED.");
         TicketPriority priorityFilter = params.oneOf("priority", priority, TicketPriority.class,
                 "Choose a priority: LOW, MEDIUM or HIGH.");
+        Long assigneeFilter = params.id("assigneeId", assigneeId);
         params.throwIfInvalid();
 
-        TicketFilter filter = new TicketFilter(statusFilter, priorityFilter, search);
-        return ticketService.findPage(actor, filter, pageNumber, pageSize).map(TicketResponse::from);
+        TicketFilter filter = new TicketFilter(statusFilter, priorityFilter, assigneeFilter, q);
+        return ticketService.findPage(actor, filter, pageNumber, pageSize, order).map(TicketResponse::from);
     }
 
     @GetMapping("/{id}")
