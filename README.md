@@ -103,6 +103,14 @@ chosen with the `SPRING_PROFILES_ACTIVE` environment variable:
 | `application-prod.yml` | `prod` | Quiet logs (`INFO`), no SQL output, and no default for `JWT_SECRET` or `DB_PASSWORD`. |
 
 A profile file is read after `application.yml`, so its values win.
+
+In `prod`, if `JWT_SECRET` or `DB_PASSWORD` is missing or empty, the app stops
+at startup with a message that names it:
+
+```
+java.lang.IllegalStateException: The prod profile needs these environment variables, but they are missing or empty: JWT_SECRET, DB_PASSWORD. Set them (see .env.example) and start again.
+```
+
 `./mvnw spring-boot:run` uses `dev`. To try `prod` locally, in Git Bash:
 
 ```bash

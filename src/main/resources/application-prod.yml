@@ -1,6 +1,6 @@
 # Production: quiet logs and no default for any secret. If JWT_SECRET or
-# DB_PASSWORD is missing, the app must refuse to start instead of quietly
-# running with the weak local defaults.
+# DB_PASSWORD is missing, RequiredSecretsCheck stops the app at startup
+# instead of letting it run with the weak local defaults.
 spring:
   datasource:
     password: ${DB_PASSWORD}
