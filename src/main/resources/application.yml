@@ -21,6 +21,19 @@ spring:
     open-in-view: false
     show-sql: false
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only GET /actuator/health, so anything (Docker, a load balancer) can
+        # ask "is the app alive?". Other endpoints such as env or heapdump can
+        # reveal settings and secrets, so they stay off.
+        include: health
+  endpoint:
+    health:
+      # Just {"status":"UP"} or DOWN, with no details about the database.
+      show-details: never
+
 opsdesk:
   cors:
     # Frontend addresses allowed to call the API from a browser, separated by

@@ -60,6 +60,24 @@ It starts on <http://localhost:8080>. Hibernate creates or updates the tables
 on startup, and the first time it adds four sample projects and four sample
 users so the frontend has something to show. Stop it with Ctrl+C.
 
+## Health check
+
+`GET /actuator/health` needs no login and answers only whether the app is
+working, for example for a Docker health check:
+
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+```json
+{"groups":["liveness","readiness"],"status":"UP"}
+```
+
+It is `200` with `UP` when the app and its database are working, and `503`
+while the app is still starting or when the database cannot be reached. No
+other Actuator endpoint is turned on, because they can show settings and
+secrets.
+
 ## Register and log in
 
 Every endpoint except register and login needs a token.
