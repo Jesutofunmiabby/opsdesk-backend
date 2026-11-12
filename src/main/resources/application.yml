@@ -46,3 +46,9 @@ opsdesk:
     secret: ${JWT_SECRET:local-development-only-secret-not-for-real-use}
     # How long a token works after login, e.g. 24h or 30m.
     expiry: 24h
+
+springdoc:
+  # The API documentation: /v3/api-docs (JSON) and the Swagger page at
+  # /swagger-ui.html. Both need no login (see SecurityConfig).
+  # Every answer is JSON, so the docs say application/json, not */*.
+  default-produces-media-type: application/json
