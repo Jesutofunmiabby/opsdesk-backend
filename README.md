@@ -60,6 +60,24 @@ It starts on <http://localhost:8080>. Hibernate creates or updates the tables
 on startup, and the first time it adds four sample projects and four sample
 users so the frontend has something to show. Stop it with Ctrl+C.
 
+### In Docker
+
+The `Dockerfile` builds the JAR with the Maven wrapper on
+`eclipse-temurin:25-jdk`, then runs it on the smaller
+`eclipse-temurin:25-jre` as an ordinary user, not root. To start the backend
+together with the database and the frontend, use `docker compose up --build`
+in [opsdesk-system](https://github.com/Jesutofunmiabby/opsdesk-system).
+
+To build and run only this image, against a database it can reach:
+
+```bash
+docker build -t opsdesk-backend .
+docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=prod -e DB_URL=... -e DB_PASSWORD=... -e JWT_SECRET=... opsdesk-backend
+```
+
+`mvnw` must keep Unix line endings (set in `.gitattributes`) and its
+executable flag in Git, or the build fails on Linux.
+
 ## Health check
 
 `GET /actuator/health` needs no login and answers only whether the app is
