@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,6 +24,8 @@ import com.opsdesk.opsdeskbackend.user.UserRole;
 // the ticket itself (whose it is, who it is assigned to) are here.
 @Service
 public class TicketService {
+
+    private static final Logger log = LoggerFactory.getLogger(TicketService.class);
 
     private static final String NOT_ASSIGNABLE = "Choose a user who is an ADMIN, MANAGER or AGENT.";
 
@@ -130,7 +134,13 @@ public class TicketService {
         }
         ticket.setAssignee(assignee);
         ticket.setUpdatedAt(now());
-        return ticketRepository.save(ticket);
+        Ticket saved = ticketRepository.save(ticket);
+        if (assigneeId == null) {
+            log.info("Ticket {} unassigned", id);
+        } else {
+            log.info("Ticket {} assigned to user {}", id, assigneeId);
+        }
+        return saved;
     }
 
     public void delete(long id) {

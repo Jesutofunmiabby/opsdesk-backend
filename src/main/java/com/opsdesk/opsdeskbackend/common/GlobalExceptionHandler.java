@@ -94,8 +94,9 @@ public class GlobalExceptionHandler {
                         "This address does not accept " + e.getMethod() + " requests."));
     }
 
-    // Anything unexpected. The details go to the server log only; the client
-    // never sees a stack trace or an internal message.
+    // Anything unexpected. The details go to the server log at ERROR only; the
+    // client never sees a stack trace or an internal message. The request body
+    // is never logged, because it can hold a password.
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
         log.error("Unexpected error", e);

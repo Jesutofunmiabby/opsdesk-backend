@@ -5,6 +5,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,9 @@ import com.opsdesk.opsdeskbackend.user.UserRole;
 
 @Service
 public class AuthService {
+
+    // Logs ids only: never a password, a token, or an email address.
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     static final String EMAIL_TAKEN = "An account with this email address already exists.";
     static final String WRONG_LOGIN = "The email address or password is wrong.";
@@ -53,6 +58,7 @@ public class AuthService {
             // Someone registered the same email in the moment since the check.
             throw new ConflictException(EMAIL_TAKEN);
         }
+        log.info("User {} registered", user.getId());
         return AuthResponse.from(jwtService.issue(user), user);
     }
 
@@ -63,6 +69,13 @@ public class AuthService {
         String hash = user == null || user.getPasswordHash() == null ? noUserHash : user.getPasswordHash();
         boolean passwordMatches = passwordEncoder.matches(request.password(), hash);
         if (user == null || user.getPasswordHash() == null || !passwordMatches) {
+            // WARN: many of these in a row can mean someone is guessing
+            // passwords. The email is not logged; it may be a typed password.
+            if (user == null) {
+                log.warn("Login failed: no account with that email");
+            } else {
+                log.warn("Login failed for user {}", user.getId());
+            }
             throw new UnauthenticatedException(WRONG_LOGIN);
         }
         return AuthResponse.from(jwtService.issue(user), user);
