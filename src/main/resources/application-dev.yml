@@ -1,0 +1,12 @@
+# Development: extra output that helps while writing and debugging code.
+# Never use this profile on a real server.
+spring:
+  jpa:
+    # Prints every SQL statement Hibernate runs, for example to count the
+    # queries behind one request.
+    show-sql: true
+
+logging:
+  level:
+    # DEBUG detail from our own code only, not from every library.
+    com.opsdesk.opsdeskbackend: DEBUG
