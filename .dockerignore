@@ -1,0 +1,9 @@
+# Docker copies only what the build needs: everything is ignored, then the
+# lines starting with ! let those files back in. Anything else (target/,
+# .git/, editor settings, .env files with real values, local notes) never
+# reaches the image, even files added in the future.
+*
+!mvnw
+!.mvn/
+!pom.xml
+!src/
