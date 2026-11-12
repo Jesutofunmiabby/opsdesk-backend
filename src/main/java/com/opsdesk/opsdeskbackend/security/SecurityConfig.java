@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login").permitAll()
                         // Spring's own error page, so an error is not turned into a 401.
                         .requestMatchers("/error").permitAll()
+                        // The health check answers only UP or DOWN, so it needs no login.
+                        .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(entryPoint))
                 .addFilterBefore(new JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class);

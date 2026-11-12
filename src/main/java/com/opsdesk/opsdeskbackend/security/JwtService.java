@@ -9,6 +9,8 @@ import java.util.Optional;
 
 import javax.crypto.SecretKey;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,8 @@ import io.jsonwebtoken.security.Keys;
 // without looking the user up, and nobody can change it without the secret.
 @Service
 public class JwtService {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtService.class);
 
     private static final String ROLE_CLAIM = "role";
 
@@ -64,6 +68,9 @@ public class JwtService {
             UserRole role = UserRole.valueOf(claims.get(ROLE_CLAIM, String.class));
             return Optional.of(new AuthUser(id, role));
         } catch (JwtException | IllegalArgumentException | NullPointerException e) {
+            // DEBUG only: an expired token is normal. Logs the kind of problem,
+            // never the token, which would let anyone reading the log use it.
+            log.debug("Token rejected: {}", e.getClass().getSimpleName());
             return Optional.empty();
         }
     }

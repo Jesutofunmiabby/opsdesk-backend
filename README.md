@@ -60,6 +60,24 @@ It starts on <http://localhost:8080>. Hibernate creates or updates the tables
 on startup, and the first time it adds four sample projects and four sample
 users so the frontend has something to show. Stop it with Ctrl+C.
 
+## Health check
+
+`GET /actuator/health` needs no login and answers only whether the app is
+working, for example for a Docker health check:
+
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+```json
+{"groups":["liveness","readiness"],"status":"UP"}
+```
+
+It is `200` with `UP` when the app and its database are working, and `503`
+while the app is still starting or when the database cannot be reached. No
+other Actuator endpoint is turned on, because they can show settings and
+secrets.
+
 ## Register and log in
 
 Every endpoint except register and login needs a token.
@@ -91,24 +109,51 @@ Every endpoint except register and login needs a token.
 
 To make an account an ADMIN, see [Accounts and the first admin](#accounts-and-the-first-admin).
 
+## Profiles: development and production
+
+The same code runs with different settings depending on the Spring profile,
+chosen with the `SPRING_PROFILES_ACTIVE` environment variable:
+
+| File | Used | What is in it |
+|------|------|---------------|
+| `application.yml` | always | Shared settings, with defaults that are safe on your own computer only. |
+| `application-dev.yml` | `dev` (the default when `SPRING_PROFILES_ACTIVE` is not set) | Prints every SQL statement and our own `DEBUG` log lines. |
+| `application-prod.yml` | `prod` | Quiet logs (`INFO`), no SQL output, and no default for `JWT_SECRET` or `DB_PASSWORD`. |
+
+A profile file is read after `application.yml`, so its values win.
+
+In `prod`, if `JWT_SECRET` or `DB_PASSWORD` is missing or empty, the app stops
+at startup with a message that names it:
+
+```
+java.lang.IllegalStateException: The prod profile needs these environment variables, but they are missing or empty: JWT_SECRET, DB_PASSWORD. Set them (see .env.example) and start again.
+```
+
+`./mvnw spring-boot:run` uses `dev`. To try `prod` locally, in Git Bash:
+
+```bash
+SPRING_PROFILES_ACTIVE=prod DB_PASSWORD=opsdesk JWT_SECRET=$(openssl rand -base64 48) ./mvnw spring-boot:run
+```
+
 ## Environment variables
 
-Every setting has a default for local development, in
-`src/main/resources/application.yml`. Set an environment variable to change
-it.
+Every setting is read from an environment variable. Most have a default for
+local development, in `src/main/resources/application.yml`.
+[`.env.example`](.env.example) lists them all with example values.
 
 | Variable | Default | What it does |
 |----------|---------|--------------|
+| `SPRING_PROFILES_ACTIVE` | `dev` | `dev` or `prod` (see [Profiles](#profiles-development-and-production)). |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/opsdesk` | Where the database is. Inside Docker Compose it is `jdbc:postgresql://db:5432/opsdesk`. |
 | `DB_USER` | `opsdesk` | The PostgreSQL user name. |
-| `DB_PASSWORD` | `opsdesk` | The PostgreSQL password. The default only fits the local Docker database: set a real password this way, never in a committed file. |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | The frontend addresses allowed to call the API from a browser, separated by commas. |
-| `SQL_LOG` | `info` | Set to `debug` to print every SQL statement Hibernate runs. |
-| `JWT_SECRET` | a local-only value | Signs login tokens. At least 32 characters; the app does not start with a shorter one. Anyone who knows it can make a token for any user, so set a long random value anywhere but your own computer. |
+| `DB_PASSWORD` | `opsdesk` in `dev`; **none in `prod`** | The PostgreSQL password. The default only fits the local Docker database: set a real password this way, never in a committed file. |
+| `ALLOWED_ORIGIN` | `http://localhost:5173` | The frontend address allowed to call the API from a browser. Several can be given, separated by commas. |
+| `JWT_SECRET` | a local-only value in `dev`; **none in `prod`** | Signs login tokens. At least 32 characters; the app does not start with a shorter one. Anyone who knows it can make a token for any user, so set a long random value anywhere but your own computer. |
 
 For example, in Git Bash:
 
 ```bash
-CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173 ./mvnw spring-boot:run
+ALLOWED_ORIGIN=http://localhost:5173,http://localhost:4173 ./mvnw spring-boot:run
 ```
 
 To run with your own `JWT_SECRET`, make a long random one and pass it in the
@@ -253,7 +298,7 @@ How the API applies it:
 ## Database queries and the N+1 problem
 
 Each ticket in the JSON shows its assignee's and creator's names, which are
-stored in `app_user`, not in `ticket`. Counted with `SQL_LOG=debug` for
+stored in `app_user`, not in `ticket`. Counted from the SQL that the `dev` profile prints, for
 `GET /tickets?size=20&sort=id,desc` (20 tickets, 5 different users on the
 page):
 

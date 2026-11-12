@@ -1,0 +1,17 @@
+# Production: quiet logs and no default for any secret. If JWT_SECRET or
+# DB_PASSWORD is missing, RequiredSecretsCheck stops the app at startup
+# instead of letting it run with the weak local defaults.
+spring:
+  datasource:
+    password: ${DB_PASSWORD}
+  jpa:
+    show-sql: false
+
+opsdesk:
+  jwt:
+    secret: ${JWT_SECRET}
+
+logging:
+  level:
+    root: INFO
+    com.opsdesk.opsdeskbackend: INFO
