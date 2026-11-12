@@ -39,6 +39,11 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         // The health check answers only UP or DOWN, so it needs no login.
                         .requestMatchers("/actuator/health").permitAll()
+                        // The API documentation and the Swagger page. They
+                        // describe the API but hold no data: every endpoint
+                        // tried from the page still needs a token.
+                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**")
+                        .permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(entryPoint))
                 .addFilterBefore(new JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
